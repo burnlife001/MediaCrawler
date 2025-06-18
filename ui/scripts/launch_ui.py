@@ -20,10 +20,14 @@ def check_dependencies():
 
         checker = DependencyChecker()
 
-        # 检查是否传入了自动安装参数
+        # 不再支持自动安装参数
         auto_install = '--auto-install' in sys.argv or '-a' in sys.argv
+        if auto_install:
+            print("⚠️  注意：不再支持自动安装功能")
+            print("请使用: pip install -r requirements.txt")
+            print()
 
-        return checker.full_check(auto_install=auto_install)
+        return checker.full_check(auto_install=False)
 
     except ImportError:
         # 如果连依赖检查器都无法导入，说明基础模块有问题
@@ -42,10 +46,10 @@ def main():
 
         # 首先进行依赖检查
         if not check_dependencies():
-            print("\n❌ 依赖检查失败，无法启动程序")
-            print("\n提示:")
-            print("  - 使用 --auto-install 或 -a 参数可尝试自动安装依赖")
-            print("  - 例如: python launch_ui.py --auto-install")
+            print("\n❌ UI依赖检查失败，无法启动程序")
+            print("\n请运行以下命令安装依赖:")
+            print("  pip install -r requirements.txt")
+            print("\n注意：请确保在虚拟环境中运行安装命令")
             input("\n按回车键退出...")
             sys.exit(1)
 

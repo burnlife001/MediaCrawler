@@ -95,22 +95,25 @@ python ui/utils/dependency_checker.py
 
 ## 📦 依赖管理
 
-### 必需依赖
+### UI必需依赖
 - **tkinter**: GUI界面库（Python内置）
 - **pandas**: 数据处理和Excel导出
 - **openpyxl**: Excel文件读写
-- **Pillow**: 图像处理库
 - **httpx**: HTTP客户端（短链接解析）
 - **playwright**: 浏览器自动化
-- **opencv-python**: 计算机视觉库
+- **pydantic**: 数据验证库
+- **tenacity**: 重试机制库
+- **parsel**: HTML/XML解析器
+- **pyexecjs**: JavaScript执行引擎
+- **requests**: HTTP请求库
+- **aiofiles**: 异步文件操作
 
 ### 安装方式
 ```bash
-# 安装所有依赖
+# 推荐：安装所有依赖（包含MediaCrawler核心依赖）
 pip install -r requirements.txt
 
-# 或者单独安装
-pip install pandas openpyxl Pillow httpx playwright opencv-python
+# 注意：请确保在虚拟环境中运行安装命令
 ```
 
 ## 🎨 设计特点
