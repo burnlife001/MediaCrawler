@@ -27,30 +27,71 @@ class URLParser:
             r'http://xhslink\.com/[A-Za-z0-9]+',    # 短链接(http)
         ]
     
+    def extract_url_from_text(self, text: str, platform: str) -> Optional[str]:
+        """
+        从文本中提取URL
+
+        Args:
+            text: 包含URL的文本
+            platform: 平台类型
+
+        Returns:
+            提取的URL，失败返回None
+        """
+        if platform == "dy":
+            # 抖音URL模式
+            patterns = [
+                r'https?://(?:www\.)?douyin\.com/video/\d+',
+                r'https?://v\.douyin\.com/[A-Za-z0-9]+/?',
+                r'https?://(?:www\.)?iesdouyin\.com/share/video/\d+',
+            ]
+        elif platform == "xhs":
+            # 小红书URL模式
+            patterns = [
+                r'https?://(?:www\.)?xiaohongshu\.com/explore/[a-f0-9]+(?:\?[^\\s]*)?',
+                r'https?://xhslink\.com/[A-Za-z0-9]+',
+            ]
+        else:
+            return None
+
+        # 尝试匹配所有模式
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(0)
+
+        return None
+
     def validate_url(self, url: str, platform: str) -> Tuple[bool, str]:
         """
         验证URL格式
-        
+
         Args:
-            url: 要验证的URL
+            url: 要验证的URL或包含URL的文本
             platform: 平台类型 ('dy' 或 'xhs')
-            
+
         Returns:
             (是否有效, 错误信息)
         """
         if not url or not url.strip():
             return False, "URL不能为空"
-        
-        url = url.strip()
-        
-        # 检查是否是有效的URL格式
-        try:
-            parsed = urllib.parse.urlparse(url)
-            if not parsed.scheme or not parsed.netloc:
-                return False, "URL格式不正确"
-        except Exception:
-            return False, "URL格式不正确"
-        
+
+        text = url.strip()
+
+        # 首先尝试从文本中提取URL
+        extracted_url = self.extract_url_from_text(text, platform)
+        if extracted_url:
+            url = extracted_url
+        else:
+            # 如果没有提取到URL，检查原文本是否是有效URL
+            try:
+                parsed = urllib.parse.urlparse(text)
+                if not parsed.scheme or not parsed.netloc:
+                    return False, "未找到有效的URL链接"
+                url = text
+            except Exception:
+                return False, "未找到有效的URL链接"
+
         if platform == "dy":
             return self._validate_douyin_url(url)
         elif platform == "xhs":
@@ -77,25 +118,41 @@ class URLParser:
     def parse_url(self, url: str, platform: str) -> Optional[Dict[str, str]]:
         """
         解析URL，提取ID等信息
-        
+
         Args:
-            url: 要解析的URL
+            url: 要解析的URL或包含URL的文本
             platform: 平台类型 ('dy' 或 'xhs')
-            
+
         Returns:
             解析结果字典，包含id等信息，失败返回None
         """
         if not url or not url.strip():
             return None
-        
-        url = url.strip()
-        
+
+        text = url.strip()
+
+        # 首先尝试从文本中提取URL
+        extracted_url = self.extract_url_from_text(text, platform)
+        if extracted_url:
+            actual_url = extracted_url
+            original_text = text
+        else:
+            actual_url = text
+            original_text = text
+
         if platform == "dy":
-            return self._parse_douyin_url(url)
+            result = self._parse_douyin_url(actual_url)
         elif platform == "xhs":
-            return self._parse_xiaohongshu_url(url)
+            result = self._parse_xiaohongshu_url(actual_url)
         else:
             return None
+
+        # 如果解析成功且原文本不是纯URL，记录原始文本
+        if result and extracted_url and len(original_text) > len(extracted_url) + 10:
+            result["original_text"] = original_text
+            result["extracted_url"] = extracted_url
+
+        return result
     
     def _parse_douyin_url(self, url: str) -> Optional[Dict[str, str]]:
         """解析抖音URL"""
@@ -108,32 +165,32 @@ class URLParser:
                 "platform": "dy",
                 "type": "video",
                 "original_url": url,
-                "parsed_url": f"https://www.douyin.com/video/{aweme_id}"
+                "parsed_url": url
             }
-        
-        # 处理短链接 - 这里需要实际访问来获取真实链接
+
+        # 处理短链接 - 直接使用，浏览器会自动重定向
         if re.search(r'v\.douyin\.com', url, re.IGNORECASE):
             return {
-                "id": "unknown",  # 短链接需要重定向才能获取真实ID
+                "id": "short_link",  # 标记为短链接
                 "platform": "dy",
                 "type": "video",
                 "original_url": url,
                 "parsed_url": url,
-                "needs_redirect": True
+                "is_short_link": True
             }
-        
+
         # 处理分享链接
         match = re.search(r'iesdouyin\.com/share/video/(\d+)', url, re.IGNORECASE)
         if match:
             aweme_id = match.group(1)
             return {
                 "id": aweme_id,
-                "platform": "dy", 
+                "platform": "dy",
                 "type": "video",
                 "original_url": url,
-                "parsed_url": f"https://www.douyin.com/video/{aweme_id}"
+                "parsed_url": url
             }
-        
+
         return None
     
     def _parse_xiaohongshu_url(self, url: str) -> Optional[Dict[str, str]]:

@@ -143,17 +143,22 @@ class MainWindow:
     
     def _on_url_change(self, *args):
         """URL输入变化时的回调"""
-        url = self.video_url.get().strip()
-        if not url:
+        text = self.video_url.get().strip()
+        if not text:
             self.url_status_label.config(text="", foreground="gray")
             return
-        
+
         # 实时验证URL格式
         platform = self.current_platform.get()
-        is_valid, message = self.url_parser.validate_url(url, platform)
-        
+        is_valid, message = self.url_parser.validate_url(text, platform)
+
         if is_valid:
-            self.url_status_label.config(text="✓ 链接格式正确", foreground="green")
+            # 尝试提取URL显示更详细的信息
+            extracted_url = self.url_parser.extract_url_from_text(text, platform)
+            if extracted_url and len(text) > len(extracted_url) + 10:
+                self.url_status_label.config(text=f"✓ 已识别分享链接: {extracted_url[:50]}...", foreground="green")
+            else:
+                self.url_status_label.config(text="✓ 链接格式正确", foreground="green")
         else:
             self.url_status_label.config(text=f"✗ {message}", foreground="red")
     
@@ -168,24 +173,37 @@ class MainWindow:
     
     def _parse_url(self):
         """解析URL"""
-        url = self.video_url.get().strip()
+        text = self.video_url.get().strip()
         platform = self.current_platform.get()
-        
-        if not url:
-            messagebox.showwarning("警告", "请输入视频链接")
+
+        if not text:
+            messagebox.showwarning("警告", "请输入视频链接或分享文本")
             return
-        
+
         try:
-            result = self.url_parser.parse_url(url, platform)
+            result = self.url_parser.parse_url(text, platform)
             if result:
+                # 构建解析结果信息
+                info_parts = []
+                if result.get('id', 'Unknown') != 'unknown':
+                    info_parts.append(f"视频ID: {result.get('id', 'Unknown')}")
+
+                if result.get('extracted_url'):
+                    info_parts.append(f"提取的链接: {result.get('extracted_url')}")
+
+                if result.get('needs_redirect'):
+                    info_parts.append("注意: 这是短链接，爬取时会自动解析")
+
+                info_text = "\n".join(info_parts) if info_parts else f"视频ID: {result.get('id', 'Unknown')}"
+
                 self.url_status_label.config(
-                    text=f"✓ 解析成功: {result.get('id', 'Unknown')}", 
+                    text=f"✓ 解析成功: {result.get('id', 'Unknown')}",
                     foreground="green"
                 )
-                messagebox.showinfo("解析成功", f"视频ID: {result.get('id', 'Unknown')}")
+                messagebox.showinfo("解析成功", info_text)
             else:
                 self.url_status_label.config(text="✗ 解析失败", foreground="red")
-                messagebox.showerror("解析失败", "无法解析该链接")
+                messagebox.showerror("解析失败", "无法解析该链接或文本")
         except Exception as e:
             self.url_status_label.config(text="✗ 解析错误", foreground="red")
             messagebox.showerror("错误", f"解析过程中发生错误: {str(e)}")
@@ -193,18 +211,22 @@ class MainWindow:
     def _start_crawling(self):
         """开始爬取"""
         # 验证输入
-        url = self.video_url.get().strip()
+        text = self.video_url.get().strip()
         platform = self.current_platform.get()
-        
-        if not url:
-            messagebox.showwarning("警告", "请输入视频链接")
+
+        if not text:
+            messagebox.showwarning("警告", "请输入视频链接或分享文本")
             return
-        
+
         # 验证URL
-        is_valid, message = self.url_parser.validate_url(url, platform)
+        is_valid, message = self.url_parser.validate_url(text, platform)
         if not is_valid:
             messagebox.showerror("错误", f"链接格式错误: {message}")
             return
+
+        # 提取实际的URL用于爬取
+        extracted_url = self.url_parser.extract_url_from_text(text, platform)
+        actual_url = extracted_url if extracted_url else text
         
         # 获取配置
         config = self.config_panel.get_config()
@@ -218,7 +240,7 @@ class MainWindow:
         self.data_processor.reset()
         
         # 在新线程中启动爬取
-        threading.Thread(target=self._run_crawler, args=(url, platform, config), 
+        threading.Thread(target=self._run_crawler, args=(actual_url, platform, config),
                         daemon=True).start()
     
     def _stop_crawling(self):

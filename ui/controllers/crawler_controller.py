@@ -9,6 +9,7 @@ import sys
 import os
 import json
 import random
+import re
 from typing import Dict, Any, Callable, Optional, List
 import logging
 from pathlib import Path
@@ -167,12 +168,16 @@ class CrawlerController:
 
             # 设置特定URL的配置
             if self.platform == "dy":
-                if parsed_result.get("id") != "unknown":
-                    base_config.DY_SPECIFIED_ID_LIST = [parsed_result["id"]]
-                    self.current_aweme_id = parsed_result["id"]
+                video_id = parsed_result.get("id")
+                if video_id and video_id not in ["unknown", "short_link"]:
+                    # 有明确的视频ID
+                    base_config.DY_SPECIFIED_ID_LIST = [video_id]
+                    self.current_aweme_id = video_id
                 else:
-                    # 短链接需要特殊处理
+                    # 短链接或无法解析的链接，使用URL直接访问
                     base_config.DY_SPECIFIED_ID_LIST = []
+                    # 存储URL用于后续处理
+                    self.target_url = url
 
             elif self.platform == "xhs":
                 base_config.XHS_SPECIFIED_NOTE_URL_LIST = [url]
@@ -180,7 +185,7 @@ class CrawlerController:
             # 设置爬取类型为详情模式
             base_config.CRAWLER_TYPE = "detail"
 
-            self.logger.info(f"配置设置完成: {self.platform}")
+            self.logger.info(f"配置设置完成: {self.platform}, URL: {url}")
 
         except Exception as e:
             self.logger.error(f"设置配置失败: {str(e)}")
@@ -356,8 +361,13 @@ class CrawlerController:
         """爬取抖音数据"""
         try:
             aweme_id = parsed_result.get("id")
-            if not aweme_id or aweme_id == "unknown":
-                raise Exception("无法获取有效的视频ID")
+
+            # 处理短链接或无法解析的链接
+            if not aweme_id or aweme_id in ["unknown", "short_link"]:
+                # 通过访问URL获取真实的视频ID
+                aweme_id = await self._resolve_douyin_url()
+                if not aweme_id:
+                    raise Exception("无法获取有效的视频ID")
 
             # 获取视频详情
             self._update_progress({
@@ -379,6 +389,40 @@ class CrawlerController:
         except Exception as e:
             self.logger.error(f"爬取抖音数据失败: {str(e)}")
             raise
+
+    async def _resolve_douyin_url(self) -> Optional[str]:
+        """解析抖音短链接获取真实视频ID"""
+        try:
+            if not hasattr(self, 'target_url'):
+                return None
+
+            self._update_progress({
+                "status": "解析短链接...",
+                "percentage": 45,
+                "crawled": 0,
+                "total": 1
+            })
+
+            # 访问URL让浏览器自动重定向
+            await self.context_page.goto(self.target_url)
+
+            # 等待页面加载并获取当前URL
+            await self.context_page.wait_for_load_state("networkidle", timeout=10000)
+            current_url = self.context_page.url
+
+            # 从重定向后的URL中提取视频ID
+            match = re.search(r'douyin\.com/video/(\d+)', current_url)
+            if match:
+                aweme_id = match.group(1)
+                self.current_aweme_id = aweme_id
+                self.logger.info(f"短链接解析成功: {self.target_url} -> {aweme_id}")
+                return aweme_id
+
+            return None
+
+        except Exception as e:
+            self.logger.error(f"解析短链接失败: {str(e)}")
+            return None
 
     async def _crawl_xiaohongshu(self, parsed_result: Dict[str, Any]):
         """爬取小红书数据"""
