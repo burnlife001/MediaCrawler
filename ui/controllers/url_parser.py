@@ -245,3 +245,50 @@ class URLParser:
             ]
         }
         return examples.get(platform, [])
+
+    async def resolve_short_url(self, url: str) -> Optional[str]:
+        """
+        解析短链接获取真实URL
+
+        Args:
+            url: 短链接
+
+        Returns:
+            真实URL，失败返回None
+        """
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
+                response = await client.head(url)
+                return str(response.url)
+
+        except Exception as e:
+            logging.error(f"解析短链接失败: {url}, 错误: {str(e)}")
+            return None
+
+    async def parse_url_with_redirect(self, url: str, platform: str) -> Optional[Dict[str, str]]:
+        """
+        解析URL，如果是短链接则先解析重定向
+
+        Args:
+            url: 要解析的URL
+            platform: 平台类型
+
+        Returns:
+            解析结果
+        """
+        # 首先尝试直接解析
+        result = self.parse_url(url, platform)
+
+        # 如果是短链接，尝试解析重定向
+        if result and result.get("needs_redirect"):
+            real_url = await self.resolve_short_url(url)
+            if real_url:
+                # 用真实URL重新解析
+                result = self.parse_url(real_url, platform)
+                if result:
+                    result["original_url"] = url
+                    result["resolved_url"] = real_url
+
+        return result

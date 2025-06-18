@@ -1,0 +1,14 @@
+{
+  "platform": "xhs",
+  "login_type": "qrcode",
+  "enable_comments": true,
+  "enable_sub_comments": false,
+  "max_comments": 50,
+  "crawl_interval": 2.0,
+  "proxy_enabled": false,
+  "proxy_url": "",
+  "auto_export_threshold": 100,
+  "export_format": "xlsx",
+  "window_geometry": "800x700",
+  "last_export_dir": ""
+}
