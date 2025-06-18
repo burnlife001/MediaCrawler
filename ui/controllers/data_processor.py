@@ -23,14 +23,18 @@ class DataProcessor:
         self.data_buffer: List[Dict[str, Any]] = []
         
         # 导出设置
-        self.auto_export_threshold = 100
+        self.auto_export_threshold = 10  # 降低阈值便于测试
         self.export_format = "xlsx"
         self.export_counter = 0
         
         # 数据统计
         self.total_processed = 0
         self.last_export_time = None
-        
+
+        # 当前会话的导出文件路径
+        self.current_session_file = None
+        self.session_exported_count = 0
+
         # 输出目录
         self.output_dir = self._get_output_dir()
         os.makedirs(self.output_dir, exist_ok=True)
@@ -89,31 +93,33 @@ class DataProcessor:
     
     def should_auto_export(self) -> bool:
         """检查是否应该自动导出"""
-        return len(self.data_buffer) >= self.auto_export_threshold
+        return len(self.data_buffer) >= 100  # 固定100条触发自动导出
     
     def auto_export(self) -> Optional[str]:
         """自动导出数据"""
         if not self.data_buffer:
             return None
-        
+
         try:
-            # 生成文件名
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.export_counter += 1
-            filename = f"auto_export_{timestamp}_{self.export_counter:03d}.{self.export_format}"
-            
-            # 导出数据
-            file_path = self._export_data(self.data_buffer, filename)
-            
+            # 如果是第一次导出，创建新文件
+            if self.current_session_file is None:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"crawl_result_{timestamp}.{self.export_format}"
+                self.current_session_file = os.path.join(self.output_dir, filename)
+
+            # 导出数据到当前会话文件
+            self._append_to_session_file(self.data_buffer)
+
             # 清空缓冲区
             exported_count = len(self.data_buffer)
+            self.session_exported_count += exported_count
             self.data_buffer.clear()
-            
+
             self.last_export_time = datetime.now()
-            self.logger.info(f"自动导出完成: {file_path}, 导出 {exported_count} 条记录")
-            
-            return file_path
-            
+            self.logger.info(f"自动导出完成: {self.current_session_file}, 本次导出 {exported_count} 条，累计 {self.session_exported_count} 条")
+
+            return self.current_session_file
+
         except Exception as e:
             self.logger.error(f"自动导出失败: {str(e)}")
             raise
@@ -265,6 +271,8 @@ class DataProcessor:
         self.total_processed = 0
         self.export_counter = 0
         self.last_export_time = None
+        self.current_session_file = None
+        self.session_exported_count = 0
         self.logger.info("数据处理器已重置")
     
     def get_statistics(self) -> Dict[str, Any]:
@@ -292,3 +300,103 @@ class DataProcessor:
     def get_recent_data(self, count: int = 10) -> List[Dict[str, Any]]:
         """获取最近的数据"""
         return self.data_buffer[-count:] if len(self.data_buffer) >= count else self.data_buffer.copy()
+
+    def finish_session_export(self) -> Optional[str]:
+        """结束会话时的导出"""
+        if not self.data_buffer:
+            return self.current_session_file
+
+        try:
+            # 如果还有未导出的数据，导出到当前会话文件
+            if self.current_session_file is None:
+                # 如果没有会话文件，创建新文件
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"crawl_result_{timestamp}.{self.export_format}"
+                self.current_session_file = os.path.join(self.output_dir, filename)
+
+            # 导出剩余数据
+            self._append_to_session_file(self.data_buffer)
+
+            exported_count = len(self.data_buffer)
+            self.session_exported_count += exported_count
+            self.data_buffer.clear()
+
+            self.logger.info(f"会话结束导出: {self.current_session_file}, 本次导出 {exported_count} 条，总计 {self.session_exported_count} 条")
+
+            return self.current_session_file
+
+        except Exception as e:
+            self.logger.error(f"会话结束导出失败: {str(e)}")
+            raise
+
+    def _append_to_session_file(self, data: List[Dict[str, Any]]):
+        """追加数据到会话文件"""
+        if not data:
+            return
+
+        # 如果文件不存在，创建新文件
+        if not os.path.exists(self.current_session_file):
+            self._export_to_excel_file(data, self.current_session_file)
+        else:
+            # 文件存在，追加数据
+            self._append_to_excel_file(data, self.current_session_file)
+
+    def _append_to_excel_file(self, data: List[Dict[str, Any]], file_path: str):
+        """追加数据到Excel文件"""
+        import pandas as pd
+        from openpyxl import load_workbook
+
+        # 读取现有数据
+        existing_df = pd.read_excel(file_path, sheet_name='评论数据')
+
+        # 格式化新数据
+        new_df = pd.DataFrame(data)
+
+        # 重新排列列的顺序
+        columns_order = [
+            "nickname", "content", "aweme_url", "home_url",
+            "user_id", "title", "video_download_url",
+            "create_time", "like_count", "reply_count", "processed_time"
+        ]
+
+        # 只保留存在的列
+        existing_columns = [col for col in columns_order if col in new_df.columns]
+        new_df = new_df[existing_columns]
+
+        # 设置列名
+        column_names = {
+            "nickname": "昵称",
+            "content": "评论内容",
+            "aweme_url": "视频链接",
+            "home_url": "用户主页",
+            "user_id": "用户ID",
+            "title": "视频标题",
+            "video_download_url": "视频下载链接",
+            "create_time": "创建时间",
+            "like_count": "点赞数",
+            "reply_count": "回复数",
+            "processed_time": "处理时间"
+        }
+
+        new_df.rename(columns=column_names, inplace=True)
+
+        # 合并数据
+        combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+
+        # 重新写入文件
+        with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+            combined_df.to_excel(writer, index=False, sheet_name='评论数据')
+
+            # 调整列宽
+            worksheet = writer.sheets['评论数据']
+            for column in worksheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)  # 最大宽度50
+                worksheet.column_dimensions[column_letter].width = adjusted_width

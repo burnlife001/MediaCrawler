@@ -7,8 +7,8 @@
   "crawl_interval": 2.0,
   "proxy_enabled": false,
   "proxy_url": "",
-  "auto_export_threshold": 100,
+  "auto_export_threshold": 10,
   "export_format": "xlsx",
-  "window_geometry": "800x700",
+  "window_geometry": "1000x700+222+161",
   "last_export_dir": ""
 }

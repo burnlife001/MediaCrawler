@@ -29,79 +29,74 @@ class ConfigPanel:
     def _create_widgets(self):
         """创建配置面板UI"""
         # 主框架 - 可折叠的配置设置
-        self.frame = ttk.LabelFrame(self.parent, text="配置设置", padding="5")
-        
-        # 创建内容框架
+        self.frame = ttk.LabelFrame(self.parent, text="配置设置", padding="8")
+
+        # 创建内容框架，使用网格布局
         content_frame = ttk.Frame(self.frame)
         content_frame.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        content_frame.columnconfigure(0, weight=1)
         content_frame.columnconfigure(1, weight=1)
-        
-        row = 0
-        
-        # 登录方式设置
+
+        # 第一行：登录方式 和 爬取设置
+        # 登录方式设置（左侧）
         login_frame = ttk.LabelFrame(content_frame, text="登录方式", padding="5")
-        login_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
-        
-        ttk.Radiobutton(login_frame, text="二维码登录", variable=self.login_type, 
-                       value="qrcode").grid(row=0, column=0, sticky=tk.W, padx=(0, 20))
-        ttk.Radiobutton(login_frame, text="Cookie登录", variable=self.login_type, 
-                       value="cookie").grid(row=0, column=1, sticky=tk.W, padx=(0, 20))
-        ttk.Radiobutton(login_frame, text="手机号登录", variable=self.login_type, 
+        login_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 5), pady=(0, 8))
+
+        ttk.Radiobutton(login_frame, text="二维码登录", variable=self.login_type,
+                       value="qrcode").grid(row=0, column=0, sticky=tk.W, padx=(0, 15))
+        ttk.Radiobutton(login_frame, text="Cookie登录", variable=self.login_type,
+                       value="cookie").grid(row=0, column=1, sticky=tk.W, padx=(0, 15))
+        ttk.Radiobutton(login_frame, text="手机号登录", variable=self.login_type,
                        value="phone").grid(row=0, column=2, sticky=tk.W)
-        
-        row += 1
-        
-        # 评论设置
-        comment_frame = ttk.LabelFrame(content_frame, text="评论设置", padding="5")
-        comment_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
-        comment_frame.columnconfigure(1, weight=1)
-        
-        # 第一行：获取评论和二级评论
-        ttk.Checkbutton(comment_frame, text="获取评论", 
-                       variable=self.enable_comments).grid(row=0, column=0, sticky=tk.W, padx=(0, 20))
-        ttk.Checkbutton(comment_frame, text="获取二级评论", 
-                       variable=self.enable_sub_comments).grid(row=0, column=1, sticky=tk.W)
-        
-        # 第二行：最大评论数
-        ttk.Label(comment_frame, text="最大评论数:").grid(row=1, column=0, sticky=tk.W, pady=(10, 0))
-        comments_frame = ttk.Frame(comment_frame)
-        comments_frame.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=(10, 0), padx=(10, 0))
-        
-        self.max_comments_entry = ttk.Entry(comments_frame, textvariable=self.max_comments, width=10)
-        self.max_comments_entry.grid(row=0, column=0, sticky=tk.W)
-        ttk.Label(comments_frame, text="条").grid(row=0, column=1, sticky=tk.W, padx=(5, 0))
-        
-        row += 1
-        
-        # 爬取设置
+
+        # 爬取设置（右侧）
         crawl_frame = ttk.LabelFrame(content_frame, text="爬取设置", padding="5")
-        crawl_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        crawl_frame.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(5, 0), pady=(0, 8))
         crawl_frame.columnconfigure(1, weight=1)
-        
+
         # 爬取间隔
         ttk.Label(crawl_frame, text="爬取间隔:").grid(row=0, column=0, sticky=tk.W)
         interval_frame = ttk.Frame(crawl_frame)
         interval_frame.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(10, 0))
-        
-        self.crawl_interval_entry = ttk.Entry(interval_frame, textvariable=self.crawl_interval, width=10)
+
+        self.crawl_interval_entry = ttk.Entry(interval_frame, textvariable=self.crawl_interval, width=8)
         self.crawl_interval_entry.grid(row=0, column=0, sticky=tk.W)
         ttk.Label(interval_frame, text="秒").grid(row=0, column=1, sticky=tk.W, padx=(5, 0))
-        
-        row += 1
-        
-        # 代理设置
+
+        # 第二行：评论设置 和 代理设置
+        # 评论设置（左侧）
+        comment_frame = ttk.LabelFrame(content_frame, text="评论设置", padding="5")
+        comment_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), padx=(0, 5), pady=(0, 5))
+        comment_frame.columnconfigure(1, weight=1)
+
+        # 第一行：获取评论和二级评论
+        ttk.Checkbutton(comment_frame, text="获取评论",
+                       variable=self.enable_comments).grid(row=0, column=0, sticky=tk.W, padx=(0, 15))
+        ttk.Checkbutton(comment_frame, text="获取二级评论",
+                       variable=self.enable_sub_comments).grid(row=0, column=1, sticky=tk.W)
+
+        # 第二行：最大评论数
+        ttk.Label(comment_frame, text="最大评论数:").grid(row=1, column=0, sticky=tk.W, pady=(8, 0))
+        comments_frame = ttk.Frame(comment_frame)
+        comments_frame.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=(8, 0), padx=(10, 0))
+
+        self.max_comments_entry = ttk.Entry(comments_frame, textvariable=self.max_comments, width=8)
+        self.max_comments_entry.grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(comments_frame, text="条").grid(row=0, column=1, sticky=tk.W, padx=(5, 0))
+
+        # 代理设置（右侧）
         proxy_frame = ttk.LabelFrame(content_frame, text="代理设置", padding="5")
-        proxy_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 5))
+        proxy_frame.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=(5, 0), pady=(0, 5))
         proxy_frame.columnconfigure(1, weight=1)
-        
-        ttk.Checkbutton(proxy_frame, text="启用代理", 
-                       variable=self.proxy_enabled, 
-                       command=self._on_proxy_toggle).grid(row=0, column=0, sticky=tk.W)
-        
-        ttk.Label(proxy_frame, text="代理地址:").grid(row=1, column=0, sticky=tk.W, pady=(5, 0))
+
+        ttk.Checkbutton(proxy_frame, text="启用代理",
+                       variable=self.proxy_enabled,
+                       command=self._on_proxy_toggle).grid(row=0, column=0, columnspan=2, sticky=tk.W)
+
+        ttk.Label(proxy_frame, text="代理地址:").grid(row=1, column=0, sticky=tk.W, pady=(8, 0))
         self.proxy_entry = ttk.Entry(proxy_frame, textvariable=self.proxy_url, state="disabled")
-        self.proxy_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=(10, 0), pady=(5, 0))
-        
+        self.proxy_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=(10, 0), pady=(8, 0))
+
         # 绑定事件
         self._bind_events()
     

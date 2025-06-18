@@ -8,6 +8,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
 import asyncio
+import os
 from typing import Optional, Callable
 
 from .components.config_panel import ConfigPanel
@@ -25,8 +26,20 @@ class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("MediaCrawler - 评论提取工具")
-        self.root.geometry("800x700")
+        self.root.geometry("1000x700")
         self.root.resizable(True, True)
+
+        # 跨平台的窗口最大化
+        try:
+            # Windows
+            self.root.state('zoomed')
+        except tk.TclError:
+            try:
+                # Linux/Mac
+                self.root.attributes('-zoomed', True)
+            except tk.TclError:
+                # 如果都不支持，则设置较大的窗口尺寸
+                self.root.geometry("1200x800")
         
         # 初始化组件
         self.url_parser = URLParser()
@@ -46,78 +59,102 @@ class MainWindow:
         
         # 初始化配置
         self._load_config()
+
+        # 设置初始状态
+        self._update_ui_state()
     
     def _create_widgets(self):
         """创建UI组件"""
         # 主框架
-        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame = ttk.Frame(self.root, padding="12")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
+
         # 配置根窗口的网格权重
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(0, weight=1)
+
+        # 设置默认字体
+        self.root.option_add('*TLabel*Font', ('Arial', 9))
+        self.root.option_add('*TButton*Font', ('Arial', 9))
         
-        # 1. 平台选择区域
-        platform_frame = ttk.LabelFrame(main_frame, text="平台选择", padding="5")
-        platform_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        platform_frame.columnconfigure(1, weight=1)
-        
-        ttk.Radiobutton(platform_frame, text="抖音", variable=self.current_platform, 
-                       value="dy").grid(row=0, column=0, sticky=tk.W)
-        ttk.Radiobutton(platform_frame, text="小红书", variable=self.current_platform, 
-                       value="xhs").grid(row=0, column=1, sticky=tk.W)
-        
-        # 2. 链接输入区域
-        url_frame = ttk.LabelFrame(main_frame, text="视频链接", padding="5")
-        url_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        url_frame.columnconfigure(0, weight=1)
-        
-        self.url_entry = ttk.Entry(url_frame, textvariable=self.video_url, 
-                                  font=("Arial", 10))
-        self.url_entry.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 10))
-        
-        self.parse_btn = ttk.Button(url_frame, text="解析", command=self._parse_url)
+        # 1. 平台选择和链接输入区域（合并到一行）
+        input_frame = ttk.LabelFrame(main_frame, text="输入设置", padding="8")
+        input_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 8))
+        input_frame.columnconfigure(1, weight=1)
+
+        # 平台选择（左侧）
+        platform_subframe = ttk.Frame(input_frame)
+        platform_subframe.grid(row=0, column=0, sticky=tk.W, padx=(0, 15))
+
+        ttk.Label(platform_subframe, text="平台:").grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
+        ttk.Radiobutton(platform_subframe, text="抖音", variable=self.current_platform,
+                       value="dy").grid(row=0, column=1, sticky=tk.W, padx=(0, 10))
+        ttk.Radiobutton(platform_subframe, text="小红书", variable=self.current_platform,
+                       value="xhs").grid(row=0, column=2, sticky=tk.W)
+
+        # 链接输入（右侧）
+        url_subframe = ttk.Frame(input_frame)
+        url_subframe.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(15, 0))
+        url_subframe.columnconfigure(0, weight=1)
+
+        ttk.Label(url_subframe, text="视频链接或分享文本:").grid(row=0, column=0, sticky=tk.W, pady=(0, 3))
+
+        url_input_frame = ttk.Frame(url_subframe)
+        url_input_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        url_input_frame.columnconfigure(0, weight=1)
+
+        self.url_entry = ttk.Entry(url_input_frame, textvariable=self.video_url,
+                                  font=("Arial", 9))
+        self.url_entry.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 8))
+
+        self.parse_btn = ttk.Button(url_input_frame, text="解析", command=self._parse_url)
         self.parse_btn.grid(row=0, column=1)
-        
+
         # URL状态标签
-        self.url_status_label = ttk.Label(url_frame, text="", foreground="gray")
-        self.url_status_label.grid(row=1, column=0, columnspan=2, sticky=tk.W, pady=(5, 0))
-        
-        # 3. 配置面板
-        self.config_panel = ConfigPanel(main_frame)
-        self.config_panel.frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        
-        # 4. 操作按钮区域
+        self.url_status_label = ttk.Label(url_subframe, text="", foreground="gray", font=("Arial", 8))
+        self.url_status_label.grid(row=2, column=0, sticky=tk.W, pady=(3, 0))
+
+        # 2. 配置面板和进度信息（并排布局）
+        config_progress_frame = ttk.Frame(main_frame)
+        config_progress_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 8))
+        config_progress_frame.columnconfigure(0, weight=1)
+        config_progress_frame.columnconfigure(1, weight=1)
+
+        # 配置面板（左侧）
+        self.config_panel = ConfigPanel(config_progress_frame)
+        self.config_panel.frame.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 8))
+
+        # 进度面板（右侧）
+        self.progress_panel = ProgressPanel(config_progress_frame)
+        self.progress_panel.frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(8, 0))
+
+        # 3. 操作按钮区域
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        
-        self.start_btn = ttk.Button(button_frame, text="开始爬取", 
+        button_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 8))
+
+        self.start_btn = ttk.Button(button_frame, text="开始爬取",
                                    command=self._start_crawling)
         self.start_btn.grid(row=0, column=0, padx=(0, 10))
-        
-        self.stop_btn = ttk.Button(button_frame, text="停止", 
+
+        self.stop_btn = ttk.Button(button_frame, text="停止",
                                   command=self._stop_crawling, state="disabled")
         self.stop_btn.grid(row=0, column=1, padx=(0, 10))
-        
-        self.export_btn = ttk.Button(button_frame, text="导出数据", 
+
+        self.export_btn = ttk.Button(button_frame, text="导出数据",
                                     command=self._export_data)
         self.export_btn.grid(row=0, column=2, padx=(0, 10))
-        
-        self.clear_btn = ttk.Button(button_frame, text="清空结果", 
+
+        self.clear_btn = ttk.Button(button_frame, text="清空结果",
                                    command=self._clear_results)
         self.clear_btn.grid(row=0, column=3)
-        
-        # 5. 进度面板
-        self.progress_panel = ProgressPanel(main_frame)
-        self.progress_panel.frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        
-        # 6. 结果面板
+
+        # 4. 结果面板
         self.result_panel = ResultPanel(main_frame)
-        self.result_panel.frame.grid(row=5, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 0))
-        
+        self.result_panel.frame.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 0))
+
         # 配置行权重，让结果面板可以扩展
-        main_frame.rowconfigure(5, weight=1)
+        main_frame.rowconfigure(3, weight=1)
     
     def _setup_layout(self):
         """设置布局"""
@@ -138,7 +175,13 @@ class MainWindow:
         """加载配置"""
         # 从配置管理器加载用户设置
         config = self.config_manager.get_config()
-        self.current_platform.set(config.get('platform', 'dy'))
+
+        # 确保平台设置正确
+        platform = config.get('platform', 'dy')
+        if platform not in ['dy', 'xhs']:
+            platform = 'dy'
+
+        self.current_platform.set(platform)
         self.config_panel.load_config(config)
     
     def _on_url_change(self, *args):
@@ -146,6 +189,7 @@ class MainWindow:
         text = self.video_url.get().strip()
         if not text:
             self.url_status_label.config(text="", foreground="gray")
+            self._update_ui_state()
             return
 
         # 实时验证URL格式
@@ -161,6 +205,9 @@ class MainWindow:
                 self.url_status_label.config(text="✓ 链接格式正确", foreground="green")
         else:
             self.url_status_label.config(text=f"✗ {message}", foreground="red")
+
+        # 更新UI状态
+        self._update_ui_state()
     
     def _on_platform_change(self, *args):
         """平台切换时的回调"""
@@ -183,24 +230,21 @@ class MainWindow:
         try:
             result = self.url_parser.parse_url(text, platform)
             if result:
-                # 构建解析结果信息
-                info_parts = []
-                if result.get('id', 'Unknown') != 'unknown':
-                    info_parts.append(f"视频ID: {result.get('id', 'Unknown')}")
-
+                # 如果从分享文本中提取了URL，则将输入框设置为提取的URL
                 if result.get('extracted_url'):
-                    info_parts.append(f"提取的链接: {result.get('extracted_url')}")
+                    self.video_url.set(result['extracted_url'])
+                    self.url_status_label.config(
+                        text=f"✓ 已提取链接: {result.get('id', 'Unknown')}",
+                        foreground="green"
+                    )
+                else:
+                    self.url_status_label.config(
+                        text=f"✓ 解析成功: {result.get('id', 'Unknown')}",
+                        foreground="green"
+                    )
 
-                if result.get('needs_redirect'):
-                    info_parts.append("注意: 这是短链接，爬取时会自动解析")
-
-                info_text = "\n".join(info_parts) if info_parts else f"视频ID: {result.get('id', 'Unknown')}"
-
-                self.url_status_label.config(
-                    text=f"✓ 解析成功: {result.get('id', 'Unknown')}",
-                    foreground="green"
-                )
-                messagebox.showinfo("解析成功", info_text)
+                # 更新UI状态，启用爬取按钮
+                self._update_ui_state()
             else:
                 self.url_status_label.config(text="✗ 解析失败", foreground="red")
                 messagebox.showerror("解析失败", "无法解析该链接或文本")
@@ -278,6 +322,28 @@ class MainWindow:
         else:
             self.start_btn.config(state="normal")
             self.stop_btn.config(state="disabled")
+
+    def _update_ui_state(self):
+        """更新UI状态"""
+        # 检查是否可以开始爬取
+        can_crawl = self._can_start_crawling()
+
+        if self.is_crawling:
+            self.start_btn.config(state="disabled")
+            self.stop_btn.config(state="normal")
+        else:
+            self.start_btn.config(state="normal" if can_crawl else "disabled")
+            self.stop_btn.config(state="disabled")
+
+    def _can_start_crawling(self) -> bool:
+        """检查是否可以开始爬取"""
+        # 检查URL状态标签
+        status_text = self.url_status_label.cget("text")
+
+        # 只有解析成功的状态才允许爬取
+        return (status_text.startswith("✓ 已提取链接:") or
+                status_text.startswith("✓ 解析成功:") or
+                status_text.startswith("✓ 链接格式正确"))
     
     def _run_crawler(self, url: str, platform: str, config: dict):
         """在新线程中运行爬虫"""
@@ -298,12 +364,22 @@ class MainWindow:
             loop.run_until_complete(self.crawler_controller.crawl_by_url(url))
             
         except Exception as e:
-            self.root.after(0, lambda: messagebox.showerror("错误", f"爬取失败: {str(e)}"))
+            error_msg = f"爬取失败: {str(e)}"
+            self.root.after(0, lambda msg=error_msg: messagebox.showerror("错误", msg))
         finally:
+            # 结束时导出剩余数据
+            try:
+                final_file = self.data_processor.finish_session_export()
+                if final_file:
+                    self.root.after(0, lambda: self.progress_panel.update_status(f"完成，数据已保存到: {os.path.basename(final_file)}"))
+                else:
+                    self.root.after(0, lambda: self.progress_panel.update_status("完成"))
+            except Exception as e:
+                self.root.after(0, lambda: self.progress_panel.update_status(f"完成，但保存失败: {str(e)}"))
+
             # 更新UI状态
             self.is_crawling = False
-            self.root.after(0, self._update_button_states)
-            self.root.after(0, lambda: self.progress_panel.update_status("完成"))
+            self.root.after(0, self._update_ui_state)
     
     def _on_progress_update(self, progress: dict):
         """进度更新回调"""
@@ -331,12 +407,28 @@ class MainWindow:
     
     def _on_closing(self):
         """窗口关闭时的处理"""
-        if self.is_crawling:
-            if messagebox.askyesno("确认", "正在爬取中，确定要退出吗？"):
-                self._stop_crawling()
-                self.root.after(1000, self.root.destroy)  # 延迟销毁窗口
-        else:
+        try:
+            if self.is_crawling:
+                if messagebox.askyesno("确认退出", "正在爬取中，确定要退出吗？\n\n注意：退出后当前进度将丢失。"):
+                    self._stop_crawling()
+                    # 保存窗口状态
+                    self._save_window_state()
+                    self.root.after(1000, self.root.destroy)  # 延迟销毁窗口
+            else:
+                # 保存窗口状态
+                self._save_window_state()
+                self.root.destroy()
+        except Exception as e:
+            # 强制退出
             self.root.destroy()
+
+    def _save_window_state(self):
+        """保存窗口状态"""
+        try:
+            geometry = self.root.geometry()
+            self.config_manager.update_config({"window_geometry": geometry})
+        except Exception:
+            pass  # 忽略保存失败
     
     def run(self):
         """运行主窗口"""

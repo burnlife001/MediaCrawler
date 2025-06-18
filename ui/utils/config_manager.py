@@ -22,8 +22,8 @@ class ConfigManager:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         
-        # 配置文件路径
-        self.config_dir = os.path.join(project_root, "config")
+        # 配置文件路径 - 保存到data目录
+        self.config_dir = os.path.join(project_root, "data")
         self.ui_config_file = os.path.join(self.config_dir, "ui_config.json")
         
         # 默认配置
@@ -36,9 +36,9 @@ class ConfigManager:
             "crawl_interval": 2.0,
             "proxy_enabled": False,
             "proxy_url": "",
-            "auto_export_threshold": 100,
+            "auto_export_threshold": 10,
             "export_format": "xlsx",
-            "window_geometry": "800x700",
+            "window_geometry": "1000x700",
             "last_export_dir": ""
         }
         
@@ -54,17 +54,30 @@ class ConfigManager:
             if os.path.exists(self.ui_config_file):
                 with open(self.ui_config_file, 'r', encoding='utf-8') as f:
                     saved_config = json.load(f)
-                
+
                 # 合并配置（保留默认值，更新已保存的值）
-                self.current_config.update(saved_config)
+                # 但确保平台默认为抖音
+                merged_config = self.default_config.copy()
+                merged_config.update(saved_config)
+
+                # 强制确保默认平台是抖音
+                if 'platform' not in saved_config:
+                    merged_config['platform'] = 'dy'
+
+                self.current_config = merged_config
                 self.logger.info("配置加载成功")
             else:
                 self.logger.info("配置文件不存在，使用默认配置")
-                
+                self.current_config = self.default_config.copy()
+
         except Exception as e:
             self.logger.error(f"加载配置失败: {str(e)}")
             self.current_config = self.default_config.copy()
-        
+
+        # 最终确保平台是抖音
+        if self.current_config.get('platform') not in ['dy', 'xhs']:
+            self.current_config['platform'] = 'dy'
+
         return self.current_config.copy()
     
     def save_config(self, config: Dict[str, Any] = None) -> bool:

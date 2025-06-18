@@ -17,7 +17,7 @@ class ProgressPanel:
         self.parent = parent
         
         # 状态变量
-        self.current_status = tk.StringVar(value="准备就绪")
+        self.current_status = tk.StringVar(value="空闲状态")
         self.progress_value = tk.DoubleVar(value=0.0)
         self.crawled_count = tk.StringVar(value="0")
         self.total_count = tk.StringVar(value="0")
@@ -33,76 +33,70 @@ class ProgressPanel:
     def _create_widgets(self):
         """创建进度面板UI"""
         # 主框架
-        self.frame = ttk.LabelFrame(self.parent, text="进度信息", padding="5")
-        
+        self.frame = ttk.LabelFrame(self.parent, text="进度信息", padding="6")
+
         # 内容框架
         content_frame = ttk.Frame(self.frame)
         content_frame.grid(row=0, column=0, sticky=(tk.W, tk.E))
         content_frame.columnconfigure(1, weight=1)
-        
-        row = 0
-        
+
+        # 第一行：状态和进度条在同一行
+        status_progress_frame = ttk.Frame(content_frame)
+        status_progress_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 6))
+        status_progress_frame.columnconfigure(1, weight=1)
+
         # 状态信息
-        ttk.Label(content_frame, text="状态:").grid(row=row, column=0, sticky=tk.W, padx=(0, 10))
-        self.status_label = ttk.Label(content_frame, textvariable=self.current_status, 
-                                     foreground="blue")
-        self.status_label.grid(row=row, column=1, sticky=tk.W)
-        
-        row += 1
-        
+        ttk.Label(status_progress_frame, text="状态:").grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
+        self.status_label = ttk.Label(status_progress_frame, textvariable=self.current_status,
+                                     foreground="blue", font=("Arial", 9))
+        self.status_label.grid(row=0, column=1, sticky=tk.W, padx=(0, 15))
+
         # 进度条
-        ttk.Label(content_frame, text="进度:").grid(row=row, column=0, sticky=tk.W, 
-                                                   padx=(0, 10), pady=(10, 0))
-        
-        progress_frame = ttk.Frame(content_frame)
-        progress_frame.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=(10, 0))
+        progress_frame = ttk.Frame(status_progress_frame)
+        progress_frame.grid(row=0, column=2, sticky=(tk.W, tk.E))
         progress_frame.columnconfigure(0, weight=1)
-        
-        self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_value, 
-                                          maximum=100, length=300)
-        self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 10))
-        
-        self.progress_label = ttk.Label(progress_frame, text="0%")
+
+        self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_value,
+                                          maximum=100, length=200)
+        self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 8))
+
+        self.progress_label = ttk.Label(progress_frame, text="0%", font=("Arial", 9))
         self.progress_label.grid(row=0, column=1)
-        
-        row += 1
-        
-        # 统计信息框架
+
+        # 第二行：统计信息
         stats_frame = ttk.Frame(content_frame)
-        stats_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
+        stats_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 6))
         stats_frame.columnconfigure(1, weight=1)
         stats_frame.columnconfigure(3, weight=1)
-        
+
         # 已爬取数量
-        ttk.Label(stats_frame, text="已爬取:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
-        count_label = ttk.Label(stats_frame, textvariable=self.crawled_count, foreground="green")
+        ttk.Label(stats_frame, text="已爬取:", font=("Arial", 9)).grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        count_label = ttk.Label(stats_frame, textvariable=self.crawled_count, foreground="green", font=("Arial", 9))
         count_label.grid(row=0, column=1, sticky=tk.W, padx=(0, 20))
-        
+
         # 预计剩余时间
-        ttk.Label(stats_frame, text="预计剩余:").grid(row=0, column=2, sticky=tk.W, padx=(0, 5))
-        time_label = ttk.Label(stats_frame, textvariable=self.estimated_time, foreground="orange")
+        ttk.Label(stats_frame, text="预计剩余:", font=("Arial", 9)).grid(row=0, column=2, sticky=tk.W, padx=(0, 5))
+        time_label = ttk.Label(stats_frame, textvariable=self.estimated_time, foreground="orange", font=("Arial", 9))
         time_label.grid(row=0, column=3, sticky=tk.W)
-        
-        row += 1
-        
-        # 日志显示区域
-        log_frame = ttk.LabelFrame(content_frame, text="运行日志", padding="5")
-        log_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), 
-                      pady=(10, 0))
+
+        # 第三行：日志显示区域（紧凑版）
+        log_frame = ttk.LabelFrame(content_frame, text="运行日志", padding="4")
+        log_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S),
+                      pady=(0, 0))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
-        
-        # 创建文本框和滚动条
-        self.log_text = tk.Text(log_frame, height=6, width=70, wrap=tk.WORD, 
-                               font=("Consolas", 9), state="disabled")
+
+        # 创建文本框和滚动条（减小高度）
+        self.log_text = tk.Text(log_frame, height=4, width=70, wrap=tk.WORD,
+                               font=("Consolas", 8), state="disabled")
         scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=scrollbar.set)
-        
+
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        
+
         # 配置父框架的行权重，让日志区域可以扩展
-        content_frame.rowconfigure(row, weight=1)
+        content_frame.rowconfigure(2, weight=1)
     
     def update_status(self, status: str, status_type: str = "info"):
         """更新状态信息"""
@@ -196,22 +190,22 @@ class ProgressPanel:
     
     def reset(self):
         """重置进度信息"""
-        self.current_status.set("准备就绪")
+        self.current_status.set("空闲状态")
         self.progress_value.set(0.0)
         self.progress_label.config(text="0%")
         self.crawled_count.set("0")
         self.total_count.set("0")
         self.estimated_time.set("--")
-        
+
         # 重置时间记录
         self.start_time = None
         self.last_update_time = None
-        
+
         # 清空日志
         self.log_text.config(state="normal")
         self.log_text.delete("1.0", tk.END)
         self.log_text.config(state="disabled")
-        
+
         # 重置状态标签颜色
         self.status_label.config(foreground="blue")
     

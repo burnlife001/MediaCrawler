@@ -47,15 +47,51 @@ class MediaCrawlerApp:
     
     def _check_dependencies(self):
         """检查依赖"""
-        try:
-            import pandas
-            import openpyxl
-            self.logger.info("依赖检查通过")
-        except ImportError as e:
-            error_msg = f"缺少必要的依赖包: {str(e)}\n请运行: pip install pandas openpyxl"
+        required_packages = {
+            'pandas': 'pandas',
+            'openpyxl': 'openpyxl',
+            'PIL': 'Pillow',
+            'httpx': 'httpx',
+            'playwright': 'playwright',
+            'asyncio': None,  # 内置模块
+            'tkinter': None,  # 内置模块
+            'json': None,     # 内置模块
+            'logging': None,  # 内置模块
+            'threading': None, # 内置模块
+            'datetime': None,  # 内置模块
+            'pathlib': None,   # 内置模块
+            'typing': None,    # 内置模块
+            'urllib': None,    # 内置模块
+            're': None,        # 内置模块
+            'os': None,        # 内置模块
+            'sys': None        # 内置模块
+        }
+
+        missing_packages = []
+
+        for module_name, package_name in required_packages.items():
+            try:
+                __import__(module_name)
+                self.logger.debug(f"✓ {module_name} 可用")
+            except ImportError:
+                if package_name:  # 只有非内置模块才需要安装
+                    missing_packages.append(package_name)
+                    self.logger.error(f"✗ {module_name} 缺失")
+
+        if missing_packages:
+            error_msg = (
+                f"缺少必要的依赖包:\n\n"
+                f"缺失的包: {', '.join(missing_packages)}\n\n"
+                f"请运行以下命令安装:\n"
+                f"pip install {' '.join(missing_packages)}\n\n"
+                f"或者运行:\n"
+                f"pip install -r requirements.txt"
+            )
             self.logger.error(error_msg)
             messagebox.showerror("依赖错误", error_msg)
             sys.exit(1)
+
+        self.logger.info("所有依赖检查通过")
     
     def run(self):
         """运行应用"""
