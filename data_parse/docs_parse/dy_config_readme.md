@@ -1,8 +1,8 @@
-## Answer
+## 抖音配置说明
 
 抖音爬虫的三种模式需要设置不同的配置参数，每种模式针对不同的数据获取场景。
 
-### 搜索模式 (search)
+### 1.搜索模式 (search)
 ```bash
 python main.py --platform dy --lt qrcode --type search
 ```
@@ -13,7 +13,7 @@ python main.py --platform dy --lt qrcode --type search
 
 **工作流程：** 程序会根据关键词搜索视频  ，然后保存视频信息  ，最后获取评论  
 
-### 指定视频模式 (detail)
+### 2.指定视频模式 (detail)
 ```bash
 python main.py --platform dy --lt qrcode --type detail
 ```
@@ -23,7 +23,7 @@ python main.py --platform dy --lt qrcode --type detail
 
 **工作流程：** 程序会直接获取指定ID的视频详情  ，并发获取视频信息后获取评论  
 
-### 创作者主页模式 (creator)
+### 3.创作者主页模式 (creator)
 ```bash
 python main.py --platform dy --lt qrcode --type creator
 ```
@@ -33,7 +33,7 @@ python main.py --platform dy --lt qrcode --type creator
 
 **工作流程：** 程序会获取创作者信息和所有视频  ，通过API获取用户信息  ，然后获取所有视频  
 
-### 通用配置参数
+### 4.通用配置参数
 
 所有模式都支持的参数：
 - `ENABLE_GET_COMMENTS` - 是否获取评论  
